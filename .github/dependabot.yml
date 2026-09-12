@@ -2,9 +2,6 @@ version: 2
 updates:
   - package-ecosystem: "uv"
     directory: "/"
-    # src/requirements.txt 由 uv export 產生，CI 會檢查與 uv.lock 同步；只讓 Dependabot 更新 uv.lock
-    exclude-paths:
-      - "src/requirements.txt"
     schedule:
       interval: "monthly"
     groups:

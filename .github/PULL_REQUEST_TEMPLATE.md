@@ -16,6 +16,6 @@
 - [ ] `uv run ruff check .` 通過
 - [ ] `uv run ruff format --check .` 通過
 - [ ] `sam validate --lint --region ap-northeast-1` 通過
-- [ ] 若修改了 `pyproject.toml` 的 dependencies，已重新產生並提交 `src/requirements.txt`
+- [ ] 若修改了 `pyproject.toml` 的 dependencies，已執行 `uv lock` 並提交更新後的 `uv.lock`
 - [ ] 行為變更已附上對應測試
 - [ ] 未包含任何真實憑證（channel secret、access token、AWS 憑證等）

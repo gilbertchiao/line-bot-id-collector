@@ -13,6 +13,8 @@ __pycache__/
 
 # AWS SAM
 .aws-sam/
+# 由 make build 從 uv.lock 產生，不進版控
+src/requirements.txt
 samconfig.toml
 
 # 環境變數與憑證（絕不進版控）

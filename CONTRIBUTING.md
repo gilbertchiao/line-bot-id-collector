@@ -27,15 +27,10 @@ sam validate --lint --region ap-northeast-1
 
 ## 修改相依套件後的必要步驟
 
-若你修改了 `pyproject.toml` 的 `dependencies`，**必須**重新產生 `src/requirements.txt`：
-
-```bash
-uv export --no-dev --no-hashes --no-emit-project --frozen -o src/requirements.txt
-```
-
-`src/requirements.txt` 是 `sam build` 打包 Lambda function 時使用的純第三方套件清單。
-CI 會以 `git diff --exit-code src/requirements.txt` 檢查此檔案是否與 `uv.lock` 同步，
-若忘記重新產生並一併提交，CI 會失敗。
+若你修改了 `pyproject.toml` 的 `dependencies`，請執行 `uv lock` 並一併提交 `uv.lock`。
+部署時用 `make build`（會先以 `uv export --frozen` 從 `uv.lock` 產生不進版控的
+`src/requirements.txt`，再執行 `sam build --use-container`），因此 `uv.lock` 是部署相依的
+唯一來源，不需手動維護 requirements 檔案。
 
 ## Commit 訊息格式
 
@@ -58,7 +53,7 @@ CI 會以 `git diff --exit-code src/requirements.txt` 檢查此檔案是否與 `
    - 變更內容與動機
    - 測試方式（例如新增/修改了哪些測試、如何本機驗證）
 4. **行為變更（新功能、bug 修復）必須附上對應的測試**，不接受無測試覆蓋的行為變更。
-5. 若變更涉及相依套件，請確認 `src/requirements.txt` 已同步重新產生並一併提交。
+5. 若變更涉及相依套件，請確認 `uv.lock` 已更新並一併提交。
 
 ### 範圍限制
 

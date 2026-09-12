@@ -93,6 +93,8 @@ Resources:
 
   WebhookFunction:
     Type: AWS::Serverless::Function
+    # src/requirements.txt 不進版控，由 `make build`（uv export --frozen）從 uv.lock 產生後
+    # 交給 SAM 的 python builder 安裝；uv.lock 是相依的唯一來源。
     Properties:
       CodeUri: src/
       Handler: line_webhook_id_collector.handler.lambda_handler

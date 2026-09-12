@@ -81,18 +81,16 @@ LINE Platform (Bot B) ──POST /webhook/ops-bot ───┤
 SAM template **不會**建立 Secrets Manager secret，僅授予讀取權限；secret 需自行以 AWS CLI 建立
 （見下一節）。
 
-### 1. 產生 `src/requirements.txt`
+### 1. 相依套件的來源
 
-`sam build` 需要一份純第三方相依套件清單（不含專案本身、不含 dev 依賴）才能打包進 Lambda function
-本身的部署套件（並非獨立的 Lambda layer）。每次修改 `pyproject.toml` 的 `dependencies` 後，
-都要重新執行：
+`uv.lock` 是部署相依的唯一來源。`src/requirements.txt` **不進版控**（已在 `.gitignore`），
+由專案根目錄 `Makefile` 的 `make build` 在執行 `sam build` 前以 `uv export --frozen` 從
+`uv.lock` 產生。修改 `pyproject.toml` 的 `dependencies` 後執行 `uv lock` 並提交 `uv.lock` 即可。
 
 ```bash
-uv export --no-dev --no-hashes --no-emit-project --frozen -o src/requirements.txt
+make build     # = uv export → sam build --use-container
+make deploy    # = make build → sam deploy
 ```
-
-CI 會執行相同指令並以 `git diff --exit-code src/requirements.txt` 檢查此檔案是否與
-`uv.lock` 同步；若忘記重新產生，CI 會失敗並提示執行上述指令後重新提交。
 
 ### 2. 驗證 template
 
