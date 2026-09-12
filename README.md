@@ -406,6 +406,11 @@ CI 全程不需要任何真實 LINE 或 AWS 憑證。送 PR 前建議在本機�
 - 本專案是「盡力收集」：LINE webhook 重送需在 LINE Developers Console 手動啟用，且啟用後也不
   保證必達；本專案不做持久化的事件去重與離線補收
 
+## 貢獻與安全回報
+
+歡迎貢獻，開發環境設定與 PR 流程請參考 [CONTRIBUTING.md](CONTRIBUTING.md)。
+發現安全漏洞請參考 [SECURITY.md](SECURITY.md)，透過 GitHub Private vulnerability reporting 回報，不要開公開 issue。
+
 ## 授權
 
 [MIT License](LICENSE)
