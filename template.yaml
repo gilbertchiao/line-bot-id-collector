@@ -38,14 +38,21 @@ Parameters:
   LogRetentionDays:
     Type: Number
     Default: 30
+  Architecture:
+    Type: String
+    Default: arm64
+    AllowedValues: [arm64, x86_64]
+    Description: >-
+      Lambda CPU 架構。arm64 較便宜，但 build 主機需能產生 arm64 native wheel
+      （Docker + QEMU arm64）；沒有時改用 x86_64。
 
 Globals:
   Function:
     Runtime: python3.14
-    # arm64 有 native 相依套件（pydantic-core、aiohttp、multidict、yarl、frozenlist 等）。
+    # 有 native 相依套件（pydantic-core、aiohttp、multidict、yarl、frozenlist 等）。
     # 務必用 `sam build --use-container`（或 samconfig 的 use_container = true）打包，
-    # 避免本機 x86_64 wheel 混入導致 Lambda 冷啟動失敗。
-    Architectures: [arm64]
+    # 且容器架構要與 Architecture 參數一致，避免 wheel 架構不符導致 Lambda 冷啟動失敗。
+    Architectures: [!Ref Architecture]
     MemorySize: 256
     Timeout: 15
 
