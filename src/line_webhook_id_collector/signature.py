@@ -39,7 +39,7 @@ def is_plausible_signature(signature: str | None) -> bool:
         return False
     try:
         return len(base64.b64decode(signature, validate=True)) == hashlib.sha256().digest_size
-    except (binascii.Error, ValueError):
+    except binascii.Error, ValueError:
         return False
 
 
@@ -47,7 +47,7 @@ def verify_signature(channel_secret: str, body: bytes, signature: str) -> bool:
     """HMAC-SHA256(channel_secret, body) 的 base64 是否等於 signature（constant-time）。"""
     try:
         provided = base64.b64decode(signature, validate=True)
-    except (binascii.Error, ValueError):
+    except binascii.Error, ValueError:
         return False
     expected = hmac.new(channel_secret.encode("utf-8"), body, hashlib.sha256).digest()
     return hmac.compare_digest(expected, provided)
