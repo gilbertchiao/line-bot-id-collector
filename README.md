@@ -106,22 +106,28 @@ sam validate --lint --region ap-northeast-1
 sam build --use-container
 ```
 
-因為 `template.yaml` 的 Lambda 是 `arm64` 架構，其中 `pydantic-core`、`aiohttp`、`multidict`、
-`yarl`、`frozenlist` 等套件含有 native 相依，**務必**使用 `--use-container`（或在
-`samconfig.toml` 設定 `[default.build.parameters]` 的 `use_container = true`，
-`samconfig.example.toml` 已內建此設定）打包，才能確保產出的是 arm64 wheel，避免在
-x86_64 本機直接 build 混入不相容的 wheel，導致部署後 Lambda 冷啟動失敗。
-若本機本身不是 arm64（例如一般 x86_64 開發機），需要 Docker 具備 arm64 QEMU 模擬能力，
-可明確指定容器內的 build 架構：
+Lambda 的 CPU 架構由 `template.yaml` 的 `Architecture` 參數決定（預設 `arm64`，可改 `x86_64`）。
+`pydantic-core`、`aiohttp`、`multidict`、`yarl`、`frozenlist` 等套件含有 native 相依，
+**務必**使用 `--use-container`（或在 `samconfig.toml` 設定 `[default.build.parameters]` 的
+`use_container = true`，`samconfig.example.toml` 已內建此設定）打包。SAM 會依 template 宣告的
+架構挑選對應的 Lambda 容器映像，確保產出的 wheel 架構與 Lambda 一致。
 
-```bash
-sam build --use-container --use-container-arch arm64
-```
+- **build 主機是 arm64**（例如 Apple Silicon）：維持預設 `arm64` 即可。
+- **build 主機是 x86_64 且 Docker 具備 arm64 QEMU 模擬**：同樣維持預設 `arm64`。
+- **build 主機是 x86_64 且沒有 arm64 模擬**（容器啟動時出現 `exec format error`）：
+  部署時改用 x86_64 架構，不必修改 template：
 
-若本機沒有 Docker 或缺乏 arm64 QEMU 模擬能力而完全無法使用 `--use-container`，
-可先將 `template.yaml` 的 `Architectures` 改為 `x86_64` 再本機直接 build。**此不含容器的
-`sam build` 僅適合本機驗證或 CI 診斷用途（例如確認相依套件能正確解析、程式碼能被打包），
-並非正式部署路徑**；實際部署前務必改回 `arm64` 並透過容器 build 出正確架構的產物。
+  ```bash
+  sam build --use-container
+  sam deploy --parameter-overrides Architecture=x86_64
+  ```
+
+不含容器的 `sam build` 僅適合本機驗證或 CI 診斷用途（例如確認相依套件能正確解析、
+程式碼能被打包），**並非正式部署路徑**。
+
+> 注意：`sam validate --lint` 內建的 cfn-lint 區域規格可能落後於新開設的 AWS 區域
+> （例如 `ap-east-2` 台北），會誤報 `AWS::ApiGatewayV2::Api does not exist`。
+> 此時改用 `sam validate --lint --region ap-northeast-1` 做語法檢查即可，實際部署不受影響。
 
 ### 4. 部署
 
