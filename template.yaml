@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  LINE Webhook ID Collector - collects userId / groupId / roomId from LINE webhook events
+  for multiple bots into a single DynamoDB table.
+
+Parameters:
+  TableName:
+    Type: String
+    Default: line-webhook-targets
+  SecretNamePrefix:
+    Type: String
+    Default: line-webhook-id-collector/
+    Description: Secrets Manager name prefix; each bot's secret is "<prefix><bot_id>".
+  SecretCacheTtlSeconds:
+    Type: Number
+    Default: 300
+  NameLookupLimit:
+    Type: Number
+    Default: 50
+  NameLookupBudgetSeconds:
+    Type: Number
+    Default: 8
+  LogLevel:
+    Type: String
+    Default: INFO
+    AllowedValues: [DEBUG, INFO, WARNING, ERROR]
+  LogTargetIds:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+
+Globals:
+  Function:
+    Runtime: python3.14
+    Architectures: [arm64]
+    MemorySize: 256
+    Timeout: 15
+
+Resources:
+  TargetsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Ref TableName
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: bot_id
+          AttributeType: S
+        - AttributeName: target_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: bot_id
+          KeyType: HASH
+        - AttributeName: target_id
+          KeyType: RANGE
+
+  WebhookApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Description: LINE webhook receiver
+
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: line_webhook_id_collector.handler.lambda_handler
+      Description: Verify LINE signature, collect IDs, answer developer commands.
+      Environment:
+        Variables:
+          DYNAMODB_TABLE_NAME: !Ref TargetsTable
+          SECRET_NAME_PREFIX: !Ref SecretNamePrefix
+          SECRET_CACHE_TTL_SECONDS: !Ref SecretCacheTtlSeconds
+          NAME_LOOKUP_LIMIT: !Ref NameLookupLimit
+          NAME_LOOKUP_BUDGET_SECONDS: !Ref NameLookupBudgetSeconds
+          LOG_LEVEL: !Ref LogLevel
+          LOG_TARGET_IDS: !Ref LogTargetIds
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+                - dynamodb:GetItem
+              Resource: !GetAtt TargetsTable.Arn
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretNamePrefix}*"
+      Events:
+        Webhook:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WebhookApi
+            Path: /webhook/{bot_id}
+            Method: POST
+      LoggingConfig:
+        LogGroup: !Ref WebhookLogGroup
+
+  WebhookLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-webhook"
+      RetentionInDays: !Ref LogRetentionDays
+
+Outputs:
+  WebhookBaseUrl:
+    Description: Append /webhook/<bot_id> for each bot.
+    Value: !Sub "https://${WebhookApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
+  TableName:
+    Value: !Ref TargetsTable
+  SecretNamePrefix:
+    Value: !Ref SecretNamePrefix
