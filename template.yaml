@@ -36,6 +36,9 @@ Parameters:
 Globals:
   Function:
     Runtime: python3.14
+    # arm64 有 native 相依套件（pydantic-core、aiohttp、multidict、yarl、frozenlist 等）。
+    # 務必用 `sam build --use-container`（或 samconfig 的 use_container = true）打包，
+    # 避免本機 x86_64 wheel 混入導致 Lambda 冷啟動失敗。
     Architectures: [arm64]
     MemorySize: 256
     Timeout: 15

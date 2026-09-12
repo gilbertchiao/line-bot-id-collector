@@ -1,5 +1,8 @@
 version = 0.1
 
+[default.build.parameters]
+use_container = true
+
 [default.deploy.parameters]
 stack_name = "line-webhook-id-collector"
 region = "ap-northeast-1"

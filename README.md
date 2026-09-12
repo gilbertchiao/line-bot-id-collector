@@ -31,7 +31,13 @@ sam validate --lint --region ap-northeast-1
 sam build --use-container
 ```
 
-若本機沒有 Docker，可省略 `--use-container`，改用本機的 Python 3.14 直接 build。
+因為 `template.yaml` 的 Lambda 是 `arm64` 架構，其中 `pydantic-core`、`aiohttp`、`multidict`、
+`yarl`、`frozenlist` 等套件含有 native 相依，**務必**使用 `--use-container`（或在
+`samconfig.toml` 設定 `[default.build.parameters]` 的 `use_container = true`，
+`samconfig.example.toml` 已內建此設定）打包，才能確保產出的是 arm64 wheel，避免在
+x86_64 本機直接 build 混入不相容的 wheel，導致部署後 Lambda 冷啟動失敗。
+若本機沒有 Docker 或缺乏 arm64 QEMU 模擬能力而無法使用 `--use-container`，替代方案是先將
+`template.yaml` 的 `Architectures` 改為 `x86_64` 再本機直接 build（僅供本機驗證用途，正式部署仍建議搭配容器 build 使用 arm64）。
 
 ### 4. 部署
 
