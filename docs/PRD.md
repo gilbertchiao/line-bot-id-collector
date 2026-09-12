@@ -288,7 +288,7 @@ Bot 被移出群組或聊天室。額外動作：將 `groupId` 或 `roomId` 標�
   "status": "active",
   "first_seen_at": "2026-09-12T06:30:00Z",
   "last_seen_at": "2026-09-12T06:35:10Z",
-  "last_event_ts": 1789108510000,
+  "last_event_ts": 1789194910000,
   "last_event_type": "message"
 }
 ```
@@ -302,7 +302,7 @@ Bot 被移出群組或聊天室。額外動作：將 `groupId` 或 `roomId` 標�
   "role": "admin",
   "first_seen_at": "2026-09-12T06:30:00Z",
   "last_seen_at": "2026-09-12T06:35:10Z",
-  "last_event_ts": 1789108510000,
+  "last_event_ts": 1789194910000,
   "last_event_type": "message"
 }
 ```
@@ -750,7 +750,7 @@ aws dynamodb update-item \
   --key '{"bot_id":{"S":"{BOT_ID}"},"target_id":{"S":"Uxxxx"}}' \
   --update-expression "SET #r = :admin, target_type = if_not_exists(target_type, :t), #s = if_not_exists(#s, :a), first_seen_at = if_not_exists(first_seen_at, :now), last_seen_at = if_not_exists(last_seen_at, :now), last_event_ts = if_not_exists(last_event_ts, :ts), last_event_type = if_not_exists(last_event_type, :e)" \
   --expression-attribute-names '{"#r":"role","#s":"status"}' \
-  --expression-attribute-values '{":admin":{"S":"admin"},":t":{"S":"user"},":a":{"S":"active"},":now":{"S":"2026-09-12T00:00:00Z"},":ts":{"N":"1789084800000"},":e":{"S":"admin_add"}}'
+  --expression-attribute-values '{":admin":{"S":"admin"},":t":{"S":"user"},":a":{"S":"active"},":now":{"S":"2026-09-12T00:00:00Z"},":ts":{"N":"1789171200000"},":e":{"S":"admin_add"}}'
 
 # 手動刪除單一 target
 aws dynamodb delete-item \
