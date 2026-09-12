@@ -14,17 +14,25 @@ def utf16_len(s: str) -> int:
 
 
 def _hard_split(block: str, max_len: int) -> list[str]:
-    """單一 block 超過上限時依 code point 硬切（不會切在 surrogate pair 中間）。"""
+    """單一 block 超過上限時依 code point 硬切（不會切在 surrogate pair 中間）。
+
+    以累加目前長度的方式計算（每個字元只呼叫一次 utf16_len），
+    避免對逐漸變長的 current 重新編碼、造成 O(max_len^2) 的效能問題。
+    """
     pieces: list[str] = []
-    current = ""
+    current: list[str] = []
+    current_len = 0
     for ch in block:
-        if utf16_len(current + ch) > max_len:
-            pieces.append(current)
-            current = ch
+        ch_len = utf16_len(ch)
+        if current_len + ch_len > max_len:
+            pieces.append("".join(current))
+            current = [ch]
+            current_len = ch_len
         else:
-            current += ch
+            current.append(ch)
+            current_len += ch_len
     if current:
-        pieces.append(current)
+        pieces.append("".join(current))
     return pieces
 
 
@@ -76,5 +84,8 @@ def pack_blocks(
             return messages
         last_blocks.pop()
         remaining += 1
-    messages[-1] = trailer(remaining)[:max_len]
+    # 就連空的最後一則也放不下尾註：以 UTF-16 長度為準硬切尾註文字（不可用 code point 切片，
+    # 否則含 emoji 等 surrogate pair 字元時可能超過 max_len）。
+    note_pieces = _hard_split(trailer(remaining), max_len)
+    messages[-1] = note_pieces[0] if note_pieces else ""
     return messages

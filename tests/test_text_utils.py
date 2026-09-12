@@ -41,3 +41,27 @@ def test_pack_empty() -> None:
 def test_pack_hard_splits_oversized_block() -> None:
     out = pack_blocks(["a" * 12], max_len=5)
     assert out == ["aaaaa", "aaaaa", "aa"]
+
+
+def test_pack_hard_splits_oversized_block_with_emoji() -> None:
+    block = "😀" * 30
+    out = pack_blocks([block], max_len=7, max_messages=100)
+    # 每片都在 max_len 之內，且合併回去要等於原字串（沒有字元遺失或多出）
+    assert "".join(out) == block
+    for piece in out:
+        assert utf16_len(piece) <= 7
+        # 沒有切在 surrogate pair 中間：能正確以 UTF-16 編碼/解碼還原
+        assert piece.encode("utf-16-le").decode("utf-16-le") == piece
+
+
+def test_pack_trailer_alone_overflow_truncated_by_utf16() -> None:
+    # trailer 本身（含 emoji）就超過 max_len，且已無 block 可從最後一則移除騰出空間
+    out = pack_blocks(
+        ["ab", "cd", "ef"],
+        max_len=5,
+        max_messages=1,
+        trailer=lambda n: "😀" * 10,
+    )
+    assert len(out) == 1
+    assert utf16_len(out[-1]) <= 5
+    assert out[-1].encode("utf-16-le").decode("utf-16-le") == out[-1]
