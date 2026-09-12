@@ -30,7 +30,7 @@ Parameters:
   LogLevel:
     Type: String
     Default: INFO
-    AllowedValues: [DEBUG, INFO, WARNING, ERROR]
+    AllowedValues: [DEBUG, INFO, WARNING, ERROR, CRITICAL]
   LogTargetIds:
     Type: String
     Default: "false"
