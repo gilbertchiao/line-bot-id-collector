@@ -18,6 +18,10 @@ jobs:
         run: |
           uv run ruff check .
           uv run ruff format --check .
+      - name: Check src/requirements.txt is in sync with uv.lock
+        run: |
+          uv export --no-dev --no-hashes --no-emit-project --frozen -o src/requirements.txt
+          git diff --exit-code src/requirements.txt
       - name: Test
         run: uv run pytest -q
       - uses: aws-actions/setup-sam@v2
@@ -25,4 +29,3 @@ jobs:
           use-installer: true
       - name: Validate SAM template
         run: sam validate --lint --region ap-northeast-1
-        if: hashFiles('template.yaml') != ''

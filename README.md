@@ -83,12 +83,16 @@ SAM template **不會**建立 Secrets Manager secret，僅授予讀取權限；s
 
 ### 1. 產生 `src/requirements.txt`
 
-`sam build` 需要一份純第三方相依套件清單（不含專案本身、不含 dev 依賴）才能打包 Lambda layer。
-每次修改 `pyproject.toml` 的 `dependencies` 後，都要重新執行：
+`sam build` 需要一份純第三方相依套件清單（不含專案本身、不含 dev 依賴）才能打包進 Lambda function
+本身的部署套件（並非獨立的 Lambda layer）。每次修改 `pyproject.toml` 的 `dependencies` 後，
+都要重新執行：
 
 ```bash
-uv export --no-dev --no-hashes --no-emit-project -o src/requirements.txt
+uv export --no-dev --no-hashes --no-emit-project --frozen -o src/requirements.txt
 ```
+
+CI 會執行相同指令並以 `git diff --exit-code src/requirements.txt` 檢查此檔案是否與
+`uv.lock` 同步；若忘記重新產生，CI 會失敗並提示執行上述指令後重新提交。
 
 ### 2. 驗證 template
 

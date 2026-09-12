@@ -12,6 +12,12 @@ Parameters:
     Type: String
     Default: line-webhook-id-collector/
     Description: Secrets Manager name prefix; each bot's secret is "<prefix><bot_id>".
+    MinLength: 2
+    AllowedPattern: ^[A-Za-z0-9/_+=.@-]{1,400}/$
+    ConstraintDescription: >-
+      必須是 1 到 400 個合法的 Secrets Manager 名稱字元（英數字與 /_+=.@-），
+      且必須以斜線 "/" 結尾；空字串或缺少結尾斜線會讓 IAM policy 的資源 ARN
+      放寬為 "secret:*"，因此不允許。
   SecretCacheTtlSeconds:
     Type: Number
     Default: 300

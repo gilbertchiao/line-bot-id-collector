@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = { text = "MIT" }
 # 每次修改上述 dependencies 後，記得重新產生 src/requirements.txt 供 `sam build` 使用：
-#   uv export --no-dev --no-hashes --no-emit-project -o src/requirements.txt
+#   uv export --no-dev --no-hashes --no-emit-project --frozen -o src/requirements.txt
 dependencies = [
     "boto3>=1.35",
     "line-bot-sdk>=3.14",
