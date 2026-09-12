@@ -1,0 +1,33 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /webhook/{bot_id}",
+  "rawPath": "/webhook/alert-bot",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json",
+    "x-line-signature": "9fHL/C4krC5ko8YWj9x4juyIURndhc9I1dPc9UXl2FQ="
+  },
+  "requestContext": {
+    "accountId": "123456789012",
+    "apiId": "sample-api-id",
+    "domainName": "sample-api-id.execute-api.ap-northeast-1.amazonaws.com",
+    "domainPrefix": "sample-api-id",
+    "http": {
+      "method": "POST",
+      "path": "/webhook/alert-bot",
+      "protocol": "HTTP/1.1",
+      "sourceIp": "203.0.113.1",
+      "userAgent": "LineBotWebhook/2.0"
+    },
+    "requestId": "sample-request-id",
+    "routeKey": "POST /webhook/{bot_id}",
+    "stage": "$default",
+    "time": "12/Sep/2026:00:00:00 +0000",
+    "timeEpoch": 1789200000000
+  },
+  "pathParameters": {
+    "bot_id": "alert-bot"
+  },
+  "body": "{\"destination\":\"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"events\":[{\"type\":\"follow\",\"timestamp\":1789200000000,\"replyToken\":\"reply-token-sample\",\"mode\":\"active\",\"webhookEventId\":\"sample-01\",\"deliveryContext\":{\"isRedelivery\":false},\"source\":{\"type\":\"user\",\"userId\":\"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}}]}",
+  "isBase64Encoded": false
+}
