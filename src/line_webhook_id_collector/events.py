@@ -60,7 +60,8 @@ def _targets_from_source(source: Any) -> tuple[Target, ...]:
 
 
 def _targets_from_members(event: dict[str, Any]) -> tuple[Target, ...]:
-    members = (event.get("joined") or {}).get("members")
+    joined = event.get("joined")
+    members = joined.get("members") if isinstance(joined, dict) else None
     if not isinstance(members, list):
         return ()
     found: list[Target] = []

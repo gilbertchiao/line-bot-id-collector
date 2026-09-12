@@ -202,6 +202,32 @@ def test_write_failure_returns_500_but_continues(env, monkeypatch) -> None:
     assert env["repo"].get(BOT, G) is not None
 
 
+def test_malformed_member_joined_does_not_502(env) -> None:
+    """`joined` 欄位非預期結構（例如字串而非 dict）不應讓整個 webhook 失敗。"""
+    ev = load("member_joined.json")
+    ev["joined"] = "x"
+    resp = call(make_request([ev, load("follow.json")]))
+    assert resp["statusCode"] == 200
+    assert env["repo"].get(BOT, BOOT) is not None
+
+
+def test_event_analysis_failure_is_isolated(env, monkeypatch) -> None:
+    """`analyze_event` 對單一事件拋出未預期例外時，只記 log 並跳過，其餘事件正常處理。"""
+    original_analyze = handler_mod.analyze_event
+    calls = {"n": 0}
+
+    def flaky_analyze(raw_event, now_ms):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("boom")
+        return original_analyze(raw_event, now_ms)
+
+    monkeypatch.setattr(handler_mod, "analyze_event", flaky_analyze)
+    resp = call(make_request([load("join_group.json"), load("follow.json")]))
+    assert resp["statusCode"] == 200
+    assert env["repo"].get(BOT, BOOT) is not None
+
+
 # ---- 指令 ----
 
 

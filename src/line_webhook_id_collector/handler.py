@@ -102,10 +102,74 @@ def _target_id_for_log(settings: Settings, target_id: str) -> str | None:
     return target_id if settings.log_target_ids else None
 
 
+def _process_event(
+    deps: Dependencies,
+    bot_id: str,
+    raw_event: Any,
+    now_ms: int,
+    request_id: str | None,
+) -> tuple[CommandCandidate | None, bool]:
+    """分析並寫入單一事件；回傳（指令候選（若有且非重送）, 是否發生 DynamoDB 寫入失敗）。
+
+    呼叫端須自行捕捉本函式可能拋出的例外（主要來自 `analyze_event` 對非預期結構的輸入），
+    確保單一畸形事件不會讓整個 webhook 失敗。
+    """
+    settings, logger = deps.settings, deps.logger
+    outcome = analyze_event(raw_event, now_ms)
+    if outcome is None:
+        log_event(logger, "ignored", request_id=request_id, bot_id=bot_id, reason="invalid")
+        return None, False
+
+    had_write_failure = False
+    command = outcome.command if not outcome.is_redelivery else None
+
+    for status, targets in (
+        ("active", outcome.active_targets),
+        ("inactive", outcome.inactive_targets),
+    ):
+        for target in targets:
+            try:
+                result = deps.repo.upsert(
+                    bot_id, target, status, outcome.event_ts, outcome.event_type
+                )
+            except Exception:
+                had_write_failure = True
+                logger.exception(
+                    {
+                        "result": "write_failed",
+                        "request_id": request_id,
+                        "bot_id": bot_id,
+                        "event_type": outcome.event_type,
+                        "target_type": target.target_type,
+                    }
+                )
+                continue
+            log_event(
+                logger,
+                result,
+                request_id=request_id,
+                bot_id=bot_id,
+                event_type=outcome.event_type,
+                source_type=outcome.source_type,
+                target_type=target.target_type,
+                target_id=_target_id_for_log(settings, target.target_id),
+            )
+    if not outcome.active_targets and not outcome.inactive_targets:
+        log_event(
+            logger,
+            "ignored",
+            request_id=request_id,
+            bot_id=bot_id,
+            event_type=outcome.event_type,
+            source_type=outcome.source_type,
+        )
+    return command, had_write_failure
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Lambda 進入點：驗證簽章、收集事件、執行至多一個開發者指令。"""
     deps = _get_deps()
-    settings, logger = deps.settings, deps.logger
+    logger = deps.logger
     request_id = (event.get("requestContext") or {}).get("requestId")
 
     bot_id = (event.get("pathParameters") or {}).get("bot_id", "")
@@ -155,53 +219,17 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     pending: CommandCandidate | None = None
 
     for raw_event in events:
-        outcome = analyze_event(raw_event, now_ms)
-        if outcome is None:
-            log_event(logger, "ignored", request_id=request_id, bot_id=bot_id, reason="invalid")
+        try:
+            command, write_failed = _process_event(deps, bot_id, raw_event, now_ms, request_id)
+        except Exception:
+            # 單一事件的分析或處理不應讓整個 webhook 失敗（避免 API Gateway 502）；
+            # 不記錄原始事件內容，避免將未知結構的資料寫進 log。
+            logger.exception({"result": "event_failed", "request_id": request_id, "bot_id": bot_id})
             continue
-        if pending is None and outcome.command is not None and not outcome.is_redelivery:
-            pending = outcome.command
-
-        for status, targets in (
-            ("active", outcome.active_targets),
-            ("inactive", outcome.inactive_targets),
-        ):
-            for target in targets:
-                try:
-                    result = deps.repo.upsert(
-                        bot_id, target, status, outcome.event_ts, outcome.event_type
-                    )
-                except Exception:
-                    had_write_failure = True
-                    logger.exception(
-                        {
-                            "result": "write_failed",
-                            "request_id": request_id,
-                            "bot_id": bot_id,
-                            "event_type": outcome.event_type,
-                            "target_type": target.target_type,
-                        }
-                    )
-                    continue
-                log_event(
-                    logger,
-                    result,
-                    request_id=request_id,
-                    bot_id=bot_id,
-                    event_type=outcome.event_type,
-                    source_type=outcome.source_type,
-                    target_type=target.target_type,
-                    target_id=_target_id_for_log(settings, target.target_id),
-                )
-        if not outcome.active_targets and not outcome.inactive_targets:
-            log_event(
-                logger,
-                "ignored",
-                request_id=request_id,
-                bot_id=bot_id,
-                event_type=outcome.event_type,
-                source_type=outcome.source_type,
-            )
+        if write_failed:
+            had_write_failure = True
+        if pending is None and command is not None:
+            pending = command
 
     if pending is not None:
         _handle_command(deps, bot_id, secret, pending, now_ms, request_id)

@@ -51,6 +51,14 @@ def test_member_joined_collects_members_and_group() -> None:
     assert set(out.active_targets) == {Target(G, "group"), Target(U, "user"), Target(U2, "user")}
 
 
+def test_member_joined_with_malformed_joined_field_yields_group_only() -> None:
+    """`joined` 非 dict（例如 SDK 之外拼裝出的畸形事件）時，只回傳來源本身的 group target。"""
+    ev = load("member_joined.json")
+    ev["joined"] = "x"
+    out = analyze_event(ev, NOW)
+    assert out.active_targets == (Target(G, "group"),)
+
+
 def test_message_user_yields_command_candidate() -> None:
     out = analyze_event(load("message_user.json"), NOW)
     assert out.active_targets == (Target(U, "user"),)
