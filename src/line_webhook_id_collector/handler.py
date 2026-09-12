@@ -102,13 +102,20 @@ def _target_id_for_log(settings: Settings, target_id: str) -> str | None:
     return target_id if settings.log_target_ids else None
 
 
+_LOGGABLE_SUBCOMMANDS = frozenset({"list", "add", "remove", "groups", "users", "rooms", "all"})
+
+
 def _command_label(text: str) -> str:
     """組出可安全寫入 log 的指令標籤（第一個 token，必要時加上子指令）。
 
-    僅在第一個 token 是 `/admin` 或 `/list`，且第二個 token 全為小寫英文字母
-    （例如 add/remove/list/groups/users/rooms/all）時才附加第二個 token；
-    使用者 ID（`U`/`C`/`R` 開頭接 32 碼英數混合）一定含數字，不會符合
-    `^[a-z]+$`，因此保證 ID 或其他個資不會外洩到 log。空字串回傳 `""`。
+    僅在第一個 token 是 `/admin` 或 `/list`，且第二個 token（轉小寫後）完全等於
+    `_LOGGABLE_SUBCOMMANDS` 中的已知子指令關鍵字時，才附加第二個 token。
+
+    刻意用明確的關鍵字白名單而非「純小寫英文字母」這類字元集規則：使用者 ID 是
+    `U` 開頭接 32 碼 16 進位字元，若使用者輸入小寫（例如 `u` + 32 個 `a`~`f`
+    組成的字元），整段字串可能全由小寫英文字母組成，仍會符合字元集規則卻不會
+    等於任何一個已知子指令關鍵字，因此白名單比對可保證 ID 或其他個資不會外洩到
+    log。空字串回傳 `""`。
     """
     tokens = text.strip().split()
     if not tokens:
@@ -116,7 +123,7 @@ def _command_label(text: str) -> str:
     keyword = tokens[0].lower()
     if keyword in ("/admin", "/list") and len(tokens) > 1:
         second = tokens[1].lower()
-        if re.match(r"^[a-z]+$", second):
+        if second in _LOGGABLE_SUBCOMMANDS:
             return f"{keyword} {second}"
     return keyword
 

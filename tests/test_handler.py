@@ -252,7 +252,9 @@ def test_id_command_logs_bare_keyword(env, capsys) -> None:
 
 def test_admin_add_command_logs_subcommand_without_id(env, capsys) -> None:
     ev = load("message_user.json")
-    target_user = "U" + "9" * 32
+    # 刻意用「全小寫英文字母」組成的 ID（無數字），驗證第二個 token 是以已知子指令
+    # 白名單比對，而非用「純小寫英文字母」字元集規則誤判 ID 為子指令關鍵字。
+    target_user = "u" + "a" * 32
     ev["message"]["text"] = f"/admin add {target_user}"
     call(make_request([ev]))
     captured_err = capsys.readouterr().err
