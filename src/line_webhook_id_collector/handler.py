@@ -102,6 +102,25 @@ def _target_id_for_log(settings: Settings, target_id: str) -> str | None:
     return target_id if settings.log_target_ids else None
 
 
+def _command_label(text: str) -> str:
+    """組出可安全寫入 log 的指令標籤（第一個 token，必要時加上子指令）。
+
+    僅在第一個 token 是 `/admin` 或 `/list`，且第二個 token 全為小寫英文字母
+    （例如 add/remove/list/groups/users/rooms/all）時才附加第二個 token；
+    使用者 ID（`U`/`C`/`R` 開頭接 32 碼英數混合）一定含數字，不會符合
+    `^[a-z]+$`，因此保證 ID 或其他個資不會外洩到 log。空字串回傳 `""`。
+    """
+    tokens = text.strip().split()
+    if not tokens:
+        return ""
+    keyword = tokens[0].lower()
+    if keyword in ("/admin", "/list") and len(tokens) > 1:
+        second = tokens[1].lower()
+        if re.match(r"^[a-z]+$", second):
+            return f"{keyword} {second}"
+    return keyword
+
+
 def _process_event(
     deps: Dependencies,
     bot_id: str,
@@ -267,9 +286,14 @@ def _handle_command(
         messages = execute_command(candidate.text, ctx)
         if messages is None:
             return
-        keyword = candidate.text.strip().split()[0].lower()
         client.reply(candidate.reply_token, messages)
-        log_event(logger, "replied", request_id=request_id, bot_id=bot_id, command=keyword)
+        log_event(
+            logger,
+            "replied",
+            request_id=request_id,
+            bot_id=bot_id,
+            command=_command_label(candidate.text),
+        )
     except LineApiError as exc:
         log_event(logger, "reply_failed", request_id=request_id, bot_id=bot_id, reason=str(exc))
     except Exception:

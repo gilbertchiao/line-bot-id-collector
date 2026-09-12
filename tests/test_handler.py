@@ -237,6 +237,29 @@ def test_admin_id_command_replies(env) -> None:
     assert env["line"].replies == [("rt-5", [f"LINE Target\n\nType: user\nUser ID:\n{BOOT}"])]
 
 
+def _replied_log_record(captured_err: str) -> dict:
+    records = [json.loads(line) for line in captured_err.strip().splitlines() if line.strip()]
+    replied = [r for r in records if r.get("result") == "replied"]
+    assert len(replied) == 1
+    return replied[0]
+
+
+def test_id_command_logs_bare_keyword(env, capsys) -> None:
+    call(make_request([load("message_user.json")]))
+    captured_err = capsys.readouterr().err
+    assert _replied_log_record(captured_err)["command"] == "/id"
+
+
+def test_admin_add_command_logs_subcommand_without_id(env, capsys) -> None:
+    ev = load("message_user.json")
+    target_user = "U" + "9" * 32
+    ev["message"]["text"] = f"/admin add {target_user}"
+    call(make_request([ev]))
+    captured_err = capsys.readouterr().err
+    assert _replied_log_record(captured_err)["command"] == "/admin add"
+    assert target_user not in captured_err
+
+
 def test_non_admin_silent(env) -> None:
     ev = load("message_user.json")
     ev["source"]["userId"] = "U" + "9" * 32
