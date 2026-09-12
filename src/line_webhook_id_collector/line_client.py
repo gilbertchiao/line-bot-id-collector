@@ -44,7 +44,12 @@ class LineClient:
         try:
             self.api.reply_message(request, _request_timeout=self._timeout)
         except Exception as exc:
-            raise LineApiError(str(exc)) from exc
+            # LINE SDK 的例外訊息（str(exc)）可能包含 LINE 回應的原始 body（可能夾帶
+            # reply token 等敏感內容），因此只保留例外類別名稱與（若有）HTTP 狀態碼，
+            # 絕不把 str(exc) 往外傳。
+            status = getattr(exc, "status", None)
+            label = f"{type(exc).__name__} (status={status})" if status else type(exc).__name__
+            raise LineApiError(label) from exc
 
     def get_group_name(self, group_id: str) -> str | None:
         try:

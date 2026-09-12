@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import boto3
+from botocore.config import Config
 
 from line_webhook_id_collector.commands import CommandContext, execute_command, is_admin
 from line_webhook_id_collector.config import Settings, load_settings
@@ -32,6 +33,12 @@ from line_webhook_id_collector.signature import (
 
 BOT_ID_RE = re.compile(r"^[a-z0-9-]{1,64}$")
 
+#: 避免 Lambda 因 Secrets Manager 網路異常而卡到 timeout 才失敗；重試次數刻意設低，
+#: 讓 handler 能在 Lambda 15 秒 timeout 內看到結果並回應。
+_BOTO_CONFIG = Config(
+    connect_timeout=2, read_timeout=5, retries={"max_attempts": 2, "mode": "standard"}
+)
+
 __all__ = ["LineApiError", "lambda_handler"]
 
 
@@ -50,7 +57,7 @@ _deps: Dependencies | None = None
 
 def _make_secrets_client() -> Any:
     """建立 Secrets Manager client；獨立成函式方便測試 monkeypatch。"""
-    return boto3.client("secretsmanager")
+    return boto3.client("secretsmanager", config=_BOTO_CONFIG)
 
 
 def _make_line_client(token: str) -> LineClient:
@@ -180,7 +187,18 @@ def _process_event(
                 target_type=target.target_type,
                 target_id=_target_id_for_log(settings, target.target_id),
             )
-    if not outcome.active_targets and not outcome.inactive_targets:
+    if not outcome.is_supported:
+        # PRD 8.8：postback、beacon 等不支援的事件類型，即使 8.1 的抽取規則已儲存
+        # target（因此上方可能已記錄 stored/marked_inactive），仍須額外記一筆 ignored。
+        log_event(
+            logger,
+            "ignored",
+            request_id=request_id,
+            bot_id=bot_id,
+            event_type=outcome.event_type,
+            source_type=outcome.source_type,
+        )
+    elif not outcome.active_targets and not outcome.inactive_targets:
         log_event(
             logger,
             "ignored",
@@ -254,8 +272,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             continue
         if write_failed:
             had_write_failure = True
-        if pending is None and command is not None:
-            pending = command
+        if command is not None:
+            if pending is None:
+                pending = command
+            else:
+                # PRD 11.3：單一 webhook 內至多執行第一個指令；其餘候選不可默默消失，
+                # 記 log 但不含指令文字（避免外洩使用者輸入內容）。
+                log_event(logger, "command_skipped", request_id=request_id, bot_id=bot_id)
 
     if pending is not None:
         _handle_command(deps, bot_id, secret, pending, now_ms, request_id)

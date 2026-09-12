@@ -45,8 +45,32 @@ def test_reply_sends_all_texts_in_one_call(client) -> None:
 
 def test_reply_failure_raises(client) -> None:
     client.fake.fail_reply = True
-    with pytest.raises(LineApiError):
+    with pytest.raises(LineApiError) as exc_info:
         client.reply("rt", ["a"])
+    # LINE SDK 例外的 str(exc) 可能夾帶回應 body；LineApiError 只保留類別名稱，
+    # 不可洩漏原始例外訊息內容。
+    assert "boom" not in str(exc_info.value)
+    assert "RuntimeError" in str(exc_info.value)
+
+
+def test_reply_failure_does_not_leak_response_body(client) -> None:
+    """模擬 LINE SDK 的 ApiException：str(exc) 含回應 body，只允許保留 status。"""
+
+    class FakeApiException(Exception):
+        def __init__(self) -> None:
+            super().__init__('400 Bad Request: {"message":"invalid reply token: secret-leak"}')
+            self.status = 400
+
+    def raise_it(*args, **kwargs):
+        raise FakeApiException
+
+    client.fake.reply_message = raise_it
+    with pytest.raises(LineApiError) as exc_info:
+        client.reply("rt", ["a"])
+    message = str(exc_info.value)
+    assert "secret-leak" not in message
+    assert "FakeApiException" in message
+    assert "400" in message
 
 
 def test_lookups(client) -> None:

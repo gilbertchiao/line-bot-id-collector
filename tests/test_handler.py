@@ -9,7 +9,9 @@ import pytest
 from moto import mock_aws
 
 from line_webhook_id_collector import handler as handler_mod
-from line_webhook_id_collector.repository import TargetRepository, create_table
+from line_webhook_id_collector.repository import TargetRepository
+
+from .dynamodb_helpers import create_table
 
 FIXTURES = Path(__file__).parent / "fixtures"
 BOT = "alert-bot"
@@ -180,6 +182,20 @@ def test_unsupported_event_200(env) -> None:
     assert call(make_request([load("postback.json")]))["statusCode"] == 200
 
 
+def test_unsupported_event_logs_stored_and_ignored(env, capsys) -> None:
+    """postback 事件仍套用抽取規則（記 stored），但事件類型本身不支援，須額外記 ignored。"""
+    call(make_request([load("postback.json")]))
+    records = [
+        json.loads(line) for line in capsys.readouterr().err.strip().splitlines() if line.strip()
+    ]
+    results = [r["result"] for r in records]
+    assert "stored" in results
+    assert "ignored" in results
+    ignored = next(r for r in records if r["result"] == "ignored")
+    assert ignored["event_type"] == "postback"
+    assert ignored["source_type"] == "user"
+
+
 def test_unfollow_marks_inactive(env) -> None:
     call(make_request([load("follow.json")]))
     call(make_request([load("unfollow.json")]))
@@ -290,6 +306,23 @@ def test_no_token_silent(env) -> None:
 def test_reply_failure_still_200(env) -> None:
     env["line"].fail = True
     assert call(make_request([load("message_user.json")]))["statusCode"] == 200
+
+
+def test_extra_command_candidate_logged_and_skipped(env, capsys) -> None:
+    """單一 webhook 含多個指令候選時，只執行第一個，其餘記 command_skipped（不含文字）。"""
+    first = load("message_user.json")
+    second = load("message_user.json")
+    second["replyToken"] = "rt-second"
+    second["webhookEventId"] = "second"
+    resp = call(make_request([first, second]))
+    assert resp["statusCode"] == 200
+    assert len(env["line"].replies) == 1
+    captured_err = capsys.readouterr().err
+    records = [json.loads(line) for line in captured_err.strip().splitlines() if line.strip()]
+    skipped = [r for r in records if r["result"] == "command_skipped"]
+    assert len(skipped) == 1
+    assert skipped[0]["bot_id"] == BOT
+    assert "text" not in skipped[0]
 
 
 def test_command_runs_after_all_events_collected(env, monkeypatch) -> None:

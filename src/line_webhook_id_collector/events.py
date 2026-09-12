@@ -18,6 +18,13 @@ _SOURCE_ID_FIELDS: tuple[tuple[str, str], ...] = (
     ("userId", "user"),
 )
 
+#: PRD 8.2～8.7 明確定義額外動作的事件類型。其餘事件類型（`postback`、`beacon`、
+#: `videoPlayComplete`、`unsend`、`memberLeft`、`accountLink`、`things` 等）仍套用
+#: 8.1 的抽取規則，但視為「不支援」，須記 log `ignored`（PRD 8.8 / 第 13 節）。
+SUPPORTED_EVENT_TYPES = frozenset(
+    {"follow", "unfollow", "join", "leave", "memberJoined", "message"}
+)
+
 
 @dataclass(frozen=True)
 class Target:
@@ -41,6 +48,11 @@ class EventOutcome:
     event_ts: int
     is_redelivery: bool
     command: CommandCandidate | None
+
+    @property
+    def is_supported(self) -> bool:
+        """是否為 PRD 8.2～8.7 明確定義額外動作的事件類型。"""
+        return self.event_type in SUPPORTED_EVENT_TYPES
 
 
 def iso_from_ms(ms: int) -> str:
