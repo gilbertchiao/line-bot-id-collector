@@ -56,6 +56,7 @@ class FakeLineClient:
     def __init__(self) -> None:
         self.replies = []
         self.fail = False
+        self.closed = False
 
     def reply(self, reply_token, texts):
         if self.fail:
@@ -67,6 +68,9 @@ class FakeLineClient:
 
     def get_user_name(self, user_id):
         return None
+
+    def close(self):
+        self.closed = True
 
 
 @pytest.fixture
@@ -259,6 +263,18 @@ def test_admin_id_command_replies(env) -> None:
     resp = call(make_request([load("message_user.json")]))
     assert resp["statusCode"] == 200
     assert env["line"].replies == [("rt-5", [f"LINE Target\n\nType: user\nUser ID:\n{BOOT}"])]
+
+
+def test_admin_command_closes_line_client_after_reply(env) -> None:
+    call(make_request([load("message_user.json")]))
+    assert env["line"].closed is True
+
+
+def test_admin_command_closes_line_client_after_reply_failure(env) -> None:
+    """就算 reply 失敗（例如 LINE API 逾時），仍要關閉底層 client 釋放連線資源。"""
+    env["line"].fail = True
+    call(make_request([load("message_user.json")]))
+    assert env["line"].closed is True
 
 
 def _replied_log_record(captured_err: str) -> dict:

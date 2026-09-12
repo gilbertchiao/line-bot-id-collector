@@ -42,3 +42,23 @@ def test_missing_table_name() -> None:
 def test_invalid_log_level_is_config_error() -> None:
     with pytest.raises(ConfigError):
         load_settings({"DYNAMODB_TABLE_NAME": "t", "LOG_LEVEL": "VERBOSE"})
+
+
+def test_invalid_log_target_ids_is_config_error() -> None:
+    with pytest.raises(ConfigError, match="LOG_TARGET_IDS"):
+        load_settings({"DYNAMODB_TABLE_NAME": "t", "LOG_TARGET_IDS": "flase"})
+
+
+def test_log_target_ids_off_is_false() -> None:
+    s = load_settings({"DYNAMODB_TABLE_NAME": "t", "LOG_TARGET_IDS": "off"})
+    assert s.log_target_ids is False
+
+
+def test_log_target_ids_yes_case_insensitive_is_true() -> None:
+    s = load_settings({"DYNAMODB_TABLE_NAME": "t", "LOG_TARGET_IDS": "YES"})
+    assert s.log_target_ids is True
+
+
+def test_invalid_numeric_setting_is_config_error() -> None:
+    with pytest.raises(ConfigError):
+        load_settings({"DYNAMODB_TABLE_NAME": "t", "SECRET_CACHE_TTL_SECONDS": "abc"})

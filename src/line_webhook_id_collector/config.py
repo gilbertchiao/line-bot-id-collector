@@ -25,8 +25,23 @@ class Settings:
     log_target_ids: bool = False
 
 
-def _as_bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes", "on"}
+_TRUE_STRINGS = frozenset({"1", "true", "yes", "on"})
+_FALSE_STRINGS = frozenset({"0", "false", "no", "off"})
+
+
+def _as_bool(name: str, value: str) -> bool:
+    """將環境變數字串解析為布林值；無法辨識的值視為設定錯誤，而非靜默視為 False。
+
+    `name` 是環境變數名稱，僅用於組出錯誤訊息，方便定位是哪個變數設定錯誤。
+    """
+    normalized = value.strip().lower()
+    if normalized in _TRUE_STRINGS:
+        return True
+    if normalized in _FALSE_STRINGS:
+        return False
+    raise ConfigError(
+        f"invalid {name}: {value!r} (must be one of {sorted(_TRUE_STRINGS | _FALSE_STRINGS)})"
+    )
 
 
 def load_settings(env: Mapping[str, str] | None = None) -> Settings:
@@ -48,7 +63,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             name_lookup_limit=int(source.get("NAME_LOOKUP_LIMIT", "50")),
             name_lookup_budget_seconds=float(source.get("NAME_LOOKUP_BUDGET_SECONDS", "8")),
             log_level=log_level,
-            log_target_ids=_as_bool(source.get("LOG_TARGET_IDS", "false")),
+            log_target_ids=_as_bool("LOG_TARGET_IDS", source.get("LOG_TARGET_IDS", "false")),
         )
     except ValueError as exc:
         raise ConfigError(f"invalid numeric setting: {exc}") from exc

@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from types import TracebackType
+
 from linebot.v3.messaging import (
     ApiClient,
     Configuration,
@@ -48,7 +50,11 @@ class LineClient:
             # reply token 等敏感內容），因此只保留例外類別名稱與（若有）HTTP 狀態碼，
             # 絕不把 str(exc) 往外傳。
             status = getattr(exc, "status", None)
-            label = f"{type(exc).__name__} (status={status})" if status else type(exc).__name__
+            label = (
+                f"{type(exc).__name__} (status={status})"
+                if status is not None
+                else type(exc).__name__
+            )
             raise LineApiError(label) from exc
 
     def get_group_name(self, group_id: str) -> str | None:
@@ -62,3 +68,26 @@ class LineClient:
             return self.api.get_profile(user_id, _request_timeout=self._timeout).display_name
         except Exception:
             return None
+
+    def close(self) -> None:
+        """關閉底層 `ApiClient`（若已建立），釋放底層 HTTP connection pool。
+
+        `self._api` 只在第一次存取 `api` property 時才會建立（lazy），因此若從未
+        呼叫過任何 API（例如指令不需要送出 reply），這裡就不需要（也無法）關閉。
+        """
+        if self._api is not None:
+            api_client = getattr(self._api, "api_client", None)
+            close = getattr(api_client, "close", None)
+            if callable(close):
+                close()
+
+    def __enter__(self) -> LineClient:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()

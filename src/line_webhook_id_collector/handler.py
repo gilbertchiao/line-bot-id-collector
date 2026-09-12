@@ -300,6 +300,7 @@ def _handle_command(
     logger, settings = deps.logger, deps.settings
     if not secret.channel_access_token:
         return
+    client: LineClient | None = None
     try:
         if not is_admin(deps.repo, bot_id, secret, candidate.user_id):
             return
@@ -328,3 +329,8 @@ def _handle_command(
         log_event(logger, "reply_failed", request_id=request_id, bot_id=bot_id, reason=str(exc))
     except Exception:
         logger.exception({"result": "command_failed", "request_id": request_id, "bot_id": bot_id})
+    finally:
+        # client 只有在通過 admin 檢查後才會建立；建立過就務必關閉底層 HTTP
+        # connection pool，避免每次指令呼叫都洩漏連線資源。
+        if client is not None:
+            client.close()
