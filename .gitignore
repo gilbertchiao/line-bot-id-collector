@@ -18,3 +18,6 @@ samconfig.toml
 # 環境變數與憑證（絕不進版控）
 .env
 .env.*
+
+# Superpowers SDD workspace（session scratch，不進版控）
+.superpowers/
