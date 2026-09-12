@@ -234,6 +234,20 @@ def test_admin_list_union_dedup() -> None:
     assert "- Dev2\n  " + ADMIN2 in text
 
 
+def test_admin_list_chunks_and_trailer() -> None:
+    """`/admin list` 放不下時也要附上與 `/list` 相同的 AWS CLI 查詢提示尾註。"""
+    repo = FakeRepo()
+    for i in range(700):
+        repo._put(f"U{i:032x}", "user", role="admin")
+    out = execute_command("/admin list", make_ctx(repo, limit=0))
+    assert 1 < len(out) <= 5
+    for msg in out:
+        assert utf16_len(msg) <= 5000
+    assert "aws dynamodb query" in out[-1]
+    assert "--table-name t" in out[-1]
+    assert f'"{BOT}"' in out[-1]
+
+
 def test_admin_add_new_and_existing() -> None:
     repo = FakeRepo()
     assert execute_command(f"/admin add {ADMIN2}", make_ctx(repo)) == [f"Added admin: {ADMIN2}"]

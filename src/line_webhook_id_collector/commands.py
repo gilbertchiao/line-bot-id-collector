@@ -106,6 +106,23 @@ class _NameResolver:
         return self._client.get_user_name(user_id)
 
 
+def _query_hint_trailer(ctx: CommandContext) -> Callable[[int], str]:
+    """組出 `pack_blocks` 用的尾註產生器：放不下時提示改用 AWS CLI 查詢全部資料。
+
+    `/list` 與 `/admin list` 共用同一份尾註格式（PRD 11.9），避免兩處分別維護。
+    """
+
+    def trailer(remaining: int) -> str:
+        return (
+            f"... and {remaining} more. Use:\n"
+            f"aws dynamodb query --table-name {ctx.settings.table_name} "
+            f'--key-condition-expression "bot_id = :b" '
+            f'--expression-attribute-values \'{{":b":{{"S":"{ctx.bot_id}"}}}}\''
+        )
+
+    return trailer
+
+
 def _list(args: list[str], ctx: CommandContext) -> list[str]:
     mode = args[0].lower() if args else ""
     if len(args) > 1 or mode not in ("", "groups", "users", "rooms", "all"):
@@ -135,26 +152,12 @@ def _list(args: list[str], ctx: CommandContext) -> list[str]:
         for item in section:
             blocks.append(_format_item(item, resolver))
 
-    def trailer(remaining: int) -> str:
-        return (
-            f"... and {remaining} more. Use:\n"
-            f"aws dynamodb query --table-name {ctx.settings.table_name} "
-            f'--key-condition-expression "bot_id = :b" '
-            f'--expression-attribute-values \'{{":b":{{"S":"{ctx.bot_id}"}}}}\''
-        )
-
-    return pack_blocks(blocks, trailer=trailer)
+    return pack_blocks(blocks, trailer=_query_hint_trailer(ctx))
 
 
 def _format_item(item: dict[str, Any], resolver: _NameResolver) -> str:
     target_id = item["target_id"]
     target_type = item.get("target_type")
-    if target_type == "room":
-        label = None
-    elif target_type == "group":
-        label = resolver.group(target_id)
-    else:
-        label = resolver.user(target_id)
 
     suffixes = []
     if item.get("role") == "admin":
@@ -164,7 +167,10 @@ def _format_item(item: dict[str, Any], resolver: _NameResolver) -> str:
     suffix = (" " + " ".join(suffixes)) if suffixes else ""
 
     if target_type == "room":
+        # LINE 不提供 room 的名稱查詢 API（PRD 11.8），只顯示 ID。
         return f"- {target_id}{suffix}"
+
+    label = resolver.group(target_id) if target_type == "group" else resolver.user(target_id)
     return f"- {label or '(unknown)'}{suffix}\n  {target_id}"
 
 
@@ -199,7 +205,7 @@ def _admin_list(ctx: CommandContext) -> list[str]:
         name = resolver.user(user_id) or "(unknown)"
         marker = " (bootstrap)" if user_id == bootstrap else ""
         blocks.append(f"- {name}{marker}\n  {user_id}")
-    return pack_blocks(blocks)
+    return pack_blocks(blocks, trailer=_query_hint_trailer(ctx))
 
 
 def _admin_add(user_id: str, ctx: CommandContext) -> list[str]:

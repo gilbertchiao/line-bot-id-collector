@@ -54,6 +54,15 @@ def test_pack_hard_splits_oversized_block_with_emoji() -> None:
         assert piece.encode("utf-16-le").decode("utf-16-le") == piece
 
 
+def test_pack_trailer_shrink_never_splits_multiline_block() -> None:
+    """尾註縮減時應整塊移除 block（即使 block 本身是多行文字，例如 `/list` 一筆項目
+    是「名稱\n  id」兩行），不可只移除 block 裡的其中一行、留下不完整的項目。"""
+    blocks = ["A1\nA2", "B1\nB2", "C1\nC2"]
+    out = pack_blocks(blocks, max_len=14, max_messages=1, trailer=lambda n: "END")
+    # 只有一則訊息，B 整塊被移除騰出空間給尾註；不可出現只剩 "B1" 缺 "B2" 的半個 block。
+    assert out == ["A1\nA2\nEND"]
+
+
 def test_pack_trailer_alone_overflow_truncated_by_utf16() -> None:
     # trailer 本身（含 emoji）就超過 max_len，且已無 block 可從最後一則移除騰出空間
     out = pack_blocks(

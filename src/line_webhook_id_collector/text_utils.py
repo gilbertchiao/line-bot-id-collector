@@ -51,41 +51,44 @@ def pack_blocks(
     for block in blocks:
         expanded.extend(_hard_split(block, max_len) if utf16_len(block) > max_len else [block])
 
-    messages: list[str] = []
-    current = ""
+    # 以「哪些 block 屬於同一則訊息」的清單追蹤，而非事後對訊息字串做 split("\n")：
+    # block 本身可能是多行文字（例如 `/list` 一筆項目是「名稱\n  id」兩行），
+    # 若改用字串 split 重建 block 邊界，尾註縮減時會誤把一個 block 從中間切開。
+    message_blocks: list[list[str]] = []
+    current: list[str] = []
     index = 0
     while index < len(expanded):
         block = expanded[index]
-        candidate = block if not current else f"{current}\n{block}"
-        if utf16_len(candidate) <= max_len:
-            current = candidate
+        candidate_blocks = [*current, block]
+        if utf16_len("\n".join(candidate_blocks)) <= max_len:
+            current = candidate_blocks
             index += 1
             continue
-        messages.append(current)
-        current = ""
-        if len(messages) == max_messages:
+        message_blocks.append(current)
+        current = []
+        if len(message_blocks) == max_messages:
             break
     else:
         if current:
-            messages.append(current)
-        return messages
+            message_blocks.append(current)
+        return ["\n".join(m) for m in message_blocks]
 
     # 走到這裡代表已達 max_messages 但還有 block 沒放
     remaining = len(expanded) - index
     if trailer is None:
-        return messages
-    # 從最後一則的尾端移除 block，直到放得下尾註
-    last_blocks = messages[-1].split("\n")
+        return ["\n".join(m) for m in message_blocks]
+    # 從最後一則的尾端移除整個 block，直到放得下尾註
+    last_blocks = list(message_blocks[-1])
     while last_blocks:
         note = trailer(remaining)
         candidate = "\n".join([*last_blocks, note])
         if utf16_len(candidate) <= max_len:
-            messages[-1] = candidate
-            return messages
+            message_blocks[-1] = [*last_blocks, note]
+            return ["\n".join(m) for m in message_blocks]
         last_blocks.pop()
         remaining += 1
     # 就連空的最後一則也放不下尾註：以 UTF-16 長度為準硬切尾註文字（不可用 code point 切片，
     # 否則含 emoji 等 surrogate pair 字元時可能超過 max_len）。
     note_pieces = _hard_split(trailer(remaining), max_len)
-    messages[-1] = note_pieces[0] if note_pieces else ""
-    return messages
+    message_blocks[-1] = [note_pieces[0]] if note_pieces else []
+    return ["\n".join(m) for m in message_blocks]
