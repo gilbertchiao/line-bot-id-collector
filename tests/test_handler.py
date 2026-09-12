@@ -149,6 +149,14 @@ def test_invalid_signature_401_no_writes(env) -> None:
     assert env["repo"].list_targets(BOT) == []
 
 
+def test_invalid_signature_401_no_line_call_even_for_admin_command(env) -> None:
+    """簽章錯誤時，即使 body 內含種子開發者的 `/id` 指令事件，也 MUST NOT 呼叫 LINE API
+    （PRD 7：簽章無效 MUST NOT 造成任何 DynamoDB 寫入或 LINE API 呼叫）。"""
+    resp = call(make_request([load("message_user.json")], signature=sign(b"other")))
+    assert resp["statusCode"] == 401
+    assert env["line"].replies == []
+
+
 def test_invalid_json_400(env) -> None:
     assert call(make_request("{not json"))["statusCode"] == 400
 
