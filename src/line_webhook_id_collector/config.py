@@ -11,6 +11,9 @@ class ConfigError(Exception):
     """必要設定缺少或格式錯誤。"""
 
 
+_VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
+
+
 @dataclass(frozen=True)
 class Settings:
     table_name: str
@@ -32,6 +35,11 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
     table_name = source.get("DYNAMODB_TABLE_NAME", "").strip()
     if not table_name:
         raise ConfigError("DYNAMODB_TABLE_NAME is required")
+    log_level = source.get("LOG_LEVEL", "INFO").strip().upper()
+    if log_level not in _VALID_LOG_LEVELS:
+        raise ConfigError(
+            f"invalid LOG_LEVEL: {log_level!r} (must be one of {sorted(_VALID_LOG_LEVELS)})"
+        )
     try:
         return Settings(
             table_name=table_name,
@@ -39,7 +47,7 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
             secret_cache_ttl_seconds=int(source.get("SECRET_CACHE_TTL_SECONDS", "300")),
             name_lookup_limit=int(source.get("NAME_LOOKUP_LIMIT", "50")),
             name_lookup_budget_seconds=float(source.get("NAME_LOOKUP_BUDGET_SECONDS", "8")),
-            log_level=source.get("LOG_LEVEL", "INFO").upper(),
+            log_level=log_level,
             log_target_ids=_as_bool(source.get("LOG_TARGET_IDS", "false")),
         )
     except ValueError as exc:

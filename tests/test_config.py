@@ -37,3 +37,8 @@ def test_overrides() -> None:
 def test_missing_table_name() -> None:
     with pytest.raises(ConfigError):
         load_settings({})
+
+
+def test_invalid_log_level_is_config_error() -> None:
+    with pytest.raises(ConfigError):
+        load_settings({"DYNAMODB_TABLE_NAME": "t", "LOG_LEVEL": "VERBOSE"})

@@ -61,6 +61,13 @@ def test_decode_bad_base64() -> None:
         decode_body({"body": "%%%", "isBase64Encoded": True})
 
 
+def test_decode_body_lone_surrogate_raises() -> None:
+    """body 字串含孤立 surrogate 時 `.encode("utf-8")` 會拋 UnicodeEncodeError，
+    須轉成 BodyDecodeError，而非讓未預期例外往外傳。"""
+    with pytest.raises(BodyDecodeError):
+        decode_body({"body": "abc\udc80def", "isBase64Encoded": False})
+
+
 def test_base64_body_signature_roundtrip() -> None:
     event = {"body": base64.b64encode(BODY).decode(), "isBase64Encoded": True}
     assert verify_signature(SECRET, decode_body(event), sign(BODY)) is True

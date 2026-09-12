@@ -63,8 +63,13 @@ class SecretCache:
         self._ttl = ttl_seconds
         self._max = max_entries
         self._clock = clock
-        # value: (expires_at, BotSecret | None)；None 代表負快取（查無此 secret）
-        self._entries: OrderedDict[str, tuple[float, BotSecret | None]] = OrderedDict()
+        # value: (expires_at, BotSecret | SecretConfigError | None)。
+        # None 代表負快取（查無此 secret）；SecretConfigError 代表該 secret 存在但
+        # 內容不合法（非 JSON 或缺 channel_secret），同樣以 TTL 快取，避免格式錯誤的
+        # secret 在每次請求都重新打 Secrets Manager。
+        self._entries: OrderedDict[str, tuple[float, BotSecret | SecretConfigError | None]] = (
+            OrderedDict()
+        )
 
     def get(self, bot_id: str) -> BotSecret:
         """取得指定 bot_id 的憑證，優先讀取尚未過期的快取。"""
@@ -72,9 +77,12 @@ class SecretCache:
         cached = self._entries.get(bot_id)
         if cached is not None and cached[0] > now:
             self._entries.move_to_end(bot_id)
-            if cached[1] is None:
+            value = cached[1]
+            if value is None:
                 raise SecretNotFound(bot_id)
-            return cached[1]
+            if isinstance(value, SecretConfigError):
+                raise value
+            return value
 
         try:
             response = self._client.get_secret_value(SecretId=f"{self._prefix}{bot_id}")
@@ -84,11 +92,15 @@ class SecretCache:
                 raise SecretNotFound(bot_id) from exc
             raise
 
-        secret = _parse(response.get("SecretString") or "")
+        try:
+            secret = _parse(response.get("SecretString") or "")
+        except SecretConfigError as exc:
+            self._store(bot_id, exc, now)
+            raise
         self._store(bot_id, secret, now)
         return secret
 
-    def _store(self, bot_id: str, secret: BotSecret | None, now: float) -> None:
+    def _store(self, bot_id: str, secret: BotSecret | SecretConfigError | None, now: float) -> None:
         """寫入快取項目，並在超過上限時淘汰最舊的項目（LRU）。"""
         self._entries[bot_id] = (now + self._ttl, secret)
         self._entries.move_to_end(bot_id)

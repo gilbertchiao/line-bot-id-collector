@@ -30,7 +30,12 @@ def decode_body(event: Mapping[str, Any]) -> bytes:
             return base64.b64decode(raw, validate=True)
         except (binascii.Error, ValueError) as exc:
             raise BodyDecodeError("body is not valid base64") from exc
-    return raw.encode("utf-8")
+    try:
+        return raw.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        # API Gateway 傳來的 body 字串若含孤立的 surrogate（lone surrogate，
+        # 通常來自上游對非法 UTF-8 位元組的寬鬆解碼），無法再編碼回 UTF-8 bytes。
+        raise BodyDecodeError("body contains an unencodable surrogate") from exc
 
 
 def is_plausible_signature(signature: str | None) -> bool:

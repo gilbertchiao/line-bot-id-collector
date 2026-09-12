@@ -8,33 +8,21 @@ from __future__ import annotations
 from typing import Any
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from line_webhook_id_collector.events import Target, iso_from_ms
 
-_NAMES = {"#status": "status", "#role": "role"}
-
-
-def create_table(resource: Any, table_name: str) -> None:
-    """建立與 template.yaml 相同 schema 的 table（測試與本機用）。"""
-    table = resource.create_table(
-        TableName=table_name,
-        KeySchema=[
-            {"AttributeName": "bot_id", "KeyType": "HASH"},
-            {"AttributeName": "target_id", "KeyType": "RANGE"},
-        ],
-        AttributeDefinitions=[
-            {"AttributeName": "bot_id", "AttributeType": "S"},
-            {"AttributeName": "target_id", "AttributeType": "S"},
-        ],
-        BillingMode="PAY_PER_REQUEST",
-    )
-    table.wait_until_exists()
+#: 避免 Lambda 因 DynamoDB 網路異常而卡到 timeout 才失敗；重試次數刻意設低，
+#: 讓呼叫端（handler）能在 Lambda 15 秒 timeout 內看到結果並回應。
+_BOTO_CONFIG = Config(
+    connect_timeout=2, read_timeout=5, retries={"max_attempts": 2, "mode": "standard"}
+)
 
 
 class TargetRepository:
     def __init__(self, table_name: str, resource: Any = None) -> None:
-        resource = resource or boto3.resource("dynamodb")
+        resource = resource or boto3.resource("dynamodb", config=_BOTO_CONFIG)
         self._table = resource.Table(table_name)
 
     def upsert(
@@ -105,7 +93,7 @@ class TargetRepository:
                 "last_event_ts = if_not_exists(last_event_ts, :now_ts), "
                 "last_event_type = if_not_exists(last_event_type, :admin_add)"
             ),
-            ExpressionAttributeNames=_NAMES,
+            ExpressionAttributeNames={"#role": "role", "#status": "status"},
             ExpressionAttributeValues={
                 ":admin": "admin",
                 ":user": "user",

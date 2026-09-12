@@ -3,7 +3,9 @@ import pytest
 from moto import mock_aws
 
 from line_webhook_id_collector.events import Target
-from line_webhook_id_collector.repository import TargetRepository, create_table
+from line_webhook_id_collector.repository import TargetRepository
+
+from .dynamodb_helpers import create_table
 
 BOT = "alert-bot"
 U = "U" + "a" * 32

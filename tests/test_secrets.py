@@ -104,6 +104,35 @@ def test_negative_cache(sm) -> None:
     assert cache.get("later").channel_secret == "s"
 
 
+def test_config_error_is_negatively_cached(sm) -> None:
+    """格式錯誤的 secret（SecretConfigError）也要在 TTL 內快取，
+    避免同一個壞掉的 secret 每次請求都重新呼叫 Secrets Manager。"""
+    put(sm, "b", "not json")
+    calls = {"n": 0}
+    original = sm.get_secret_value
+
+    def counting(**kwargs):
+        calls["n"] += 1
+        return original(**kwargs)
+
+    sm.get_secret_value = counting
+    clock = FakeClock()
+    cache = SecretCache(sm, PREFIX, 300, clock=clock)
+
+    with pytest.raises(SecretConfigError):
+        cache.get("b")
+    assert calls["n"] == 1
+
+    with pytest.raises(SecretConfigError):
+        cache.get("b")
+    assert calls["n"] == 1  # 快取命中，未再呼叫 Secrets Manager
+
+    clock.now += 301
+    sm.update_secret(SecretId=f"{PREFIX}b", SecretString=json.dumps({"channel_secret": "s"}))
+    assert cache.get("b").channel_secret == "s"
+    assert calls["n"] == 2
+
+
 def test_cache_bounded(sm) -> None:
     cache = SecretCache(sm, PREFIX, 300, max_entries=3)
     for i in range(10):
