@@ -36,8 +36,17 @@ sam build --use-container
 `samconfig.toml` 設定 `[default.build.parameters]` 的 `use_container = true`，
 `samconfig.example.toml` 已內建此設定）打包，才能確保產出的是 arm64 wheel，避免在
 x86_64 本機直接 build 混入不相容的 wheel，導致部署後 Lambda 冷啟動失敗。
-若本機沒有 Docker 或缺乏 arm64 QEMU 模擬能力而無法使用 `--use-container`，替代方案是先將
-`template.yaml` 的 `Architectures` 改為 `x86_64` 再本機直接 build（僅供本機驗證用途，正式部署仍建議搭配容器 build 使用 arm64）。
+若本機本身不是 arm64（例如一般 x86_64 開發機），需要 Docker 具備 arm64 QEMU 模擬能力，
+可明確指定容器內的 build 架構：
+
+```bash
+sam build --use-container --use-container-arch arm64
+```
+
+若本機沒有 Docker 或缺乏 arm64 QEMU 模擬能力而完全無法使用 `--use-container`，
+可先將 `template.yaml` 的 `Architectures` 改為 `x86_64` 再本機直接 build。**此不含容器的
+`sam build` 僅適合本機驗證或 CI 診斷用途（例如確認相依套件能正確解析、程式碼能被打包），
+並非正式部署路徑**；實際部署前務必改回 `arm64` 並透過容器 build 出正確架構的產物。
 
 ### 4. 部署
 
