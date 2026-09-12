@@ -1,0 +1,5 @@
+{"type":"memberJoined","timestamp":1789194900000,"replyToken":"rt-4","mode":"active",
+ "webhookEventId":"06","deliveryContext":{"isRedelivery":false},
+ "source":{"type":"group","groupId":"Cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+ "joined":{"members":[{"type":"user","userId":"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+                      {"type":"user","userId":"Udddddddddddddddddddddddddddddddd"}]}}

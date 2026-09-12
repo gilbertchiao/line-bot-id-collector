@@ -1,0 +1,5 @@
+{"type":"message","timestamp":1789194900000,"replyToken":"rt-8","mode":"active",
+ "webhookEventId":"10","deliveryContext":{"isRedelivery":false},
+ "source":{"type":"room","roomId":"Rcccccccccccccccccccccccccccccccc",
+           "userId":"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+ "message":{"id":"m4","type":"text","text":"hi"}}

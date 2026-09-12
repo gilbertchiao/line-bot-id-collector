@@ -1,0 +1,4 @@
+{"type":"message","timestamp":1789194900000,"replyToken":"rt-10","mode":"active",
+ "webhookEventId":"07","deliveryContext":{"isRedelivery":true},
+ "source":{"type":"user","userId":"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+ "message":{"id":"m1","type":"text","text":"/id"}}

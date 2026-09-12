@@ -1,0 +1,4 @@
+{"type":"message","timestamp":1789194900000,"replyToken":"rt-9","mode":"active",
+ "webhookEventId":"11","deliveryContext":{"isRedelivery":false},
+ "source":{"type":"user","userId":"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+ "message":{"id":"m5","type":"sticker","packageId":"1","stickerId":"1"}}

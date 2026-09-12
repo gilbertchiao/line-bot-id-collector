@@ -1,0 +1,4 @@
+{"type":"postback","timestamp":1789194900000,"replyToken":"rt-11","mode":"active",
+ "webhookEventId":"12","deliveryContext":{"isRedelivery":false},
+ "source":{"type":"user","userId":"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+ "postback":{"data":"x"}}

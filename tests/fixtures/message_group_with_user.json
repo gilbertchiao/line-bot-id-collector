@@ -1,0 +1,5 @@
+{"type":"message","timestamp":1789194900000,"replyToken":"rt-6","mode":"active",
+ "webhookEventId":"08","deliveryContext":{"isRedelivery":false},
+ "source":{"type":"group","groupId":"Cbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+           "userId":"Uaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+ "message":{"id":"m2","type":"text","text":"/id"}}
