@@ -38,6 +38,11 @@ Parameters:
   LogRetentionDays:
     Type: Number
     Default: 30
+  ApiStageName:
+    Type: String
+    Default: v1
+    AllowedPattern: ^[a-zA-Z0-9_-]{1,64}$
+    Description: REST API stage 名稱，會成為 webhook URL 的第一段 path。
   Architecture:
     Type: String
     Default: arm64
@@ -75,10 +80,16 @@ Resources:
         - AttributeName: target_id
           KeyType: RANGE
 
+  # 使用 REST API（API Gateway v1）而非 HTTP API：部分新區域（例如 ap-east-2 台北）
+  # 尚未提供 HTTP API。REST API 的 Lambda proxy 事件同樣帶有 pathParameters、headers、
+  # body、isBase64Encoded，handler 不需修改。
   WebhookApi:
-    Type: AWS::Serverless::HttpApi
+    Type: AWS::Serverless::Api
     Properties:
       Description: LINE webhook receiver
+      StageName: !Ref ApiStageName
+      EndpointConfiguration:
+        Type: REGIONAL
 
   WebhookFunction:
     Type: AWS::Serverless::Function
@@ -109,9 +120,9 @@ Resources:
               Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretNamePrefix}*"
       Events:
         Webhook:
-          Type: HttpApi
+          Type: Api
           Properties:
-            ApiId: !Ref WebhookApi
+            RestApiId: !Ref WebhookApi
             Path: /webhook/{bot_id}
             Method: POST
       LoggingConfig:
@@ -126,7 +137,7 @@ Resources:
 Outputs:
   WebhookBaseUrl:
     Description: Append /webhook/<bot_id> for each bot.
-    Value: !Sub "https://${WebhookApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}"
+    Value: !Sub "https://${WebhookApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/${ApiStageName}"
   TableName:
     Value: !Ref TargetsTable
   SecretNamePrefix:

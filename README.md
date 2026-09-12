@@ -32,7 +32,7 @@ LINE Platform (Bot A) ──POST /webhook/alert-bot──┐
 LINE Platform (Bot B) ──POST /webhook/ops-bot ───┤
                                                   ▼
                                    ┌──────────────────────────────┐
-                                   │ API Gateway HTTP API          │
+                                   │ API Gateway REST API          │
                                    │ POST /webhook/{bot_id}        │
                                    └───────────────┬──────────────┘
                                                    ▼
@@ -51,7 +51,7 @@ LINE Platform (Bot B) ──POST /webhook/ops-bot ───┤
                               (每 Bot 一個 secret) (targets)  (reply / profile / group summary)
 ```
 
-使用 API Gateway **HTTP API**（不是 REST API），因為只需要簡單的 Lambda proxy integration。
+使用 API Gateway **REST API**（v1）的 Lambda proxy integration。原設計採用 HTTP API，但部分新區域（例如 `ap-east-2` 台北）尚未提供 HTTP API；REST API 的 proxy 事件欄位相同，handler 不需修改。Stage 名稱由 `ApiStageName` 參數決定（預設 `v1`），會成為 webhook URL 的第一段 path。
 整條路徑沒有任何佇列或非同步元件：Webhook → Lambda → DynamoDB → 200。
 
 ## 功能
@@ -77,7 +77,7 @@ LINE Platform (Bot B) ──POST /webhook/ops-bot ───┤
 ## AWS 部署步驟
 
 本專案使用 [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/) 部署，
-`template.yaml` 定義了 Lambda Function、HTTP API、DynamoDB Table 與最小權限 IAM Policy。
+`template.yaml` 定義了 Lambda Function、REST API、DynamoDB Table 與最小權限 IAM Policy。
 SAM template **不會**建立 Secrets Manager secret，僅授予讀取權限；secret 需自行以 AWS CLI 建立
 （見下一節）。
 
@@ -305,7 +305,7 @@ Secrets Manager，不放環境變數，也絕不寫入 log 或進版控。
   若改用 customer managed KMS key，需自行補上 `kms:Decrypt` 權限，本版不支援。
 - Secret 內容絕不寫入 log、絕不進 git；DynamoDB 中的 target ID 預設也不寫入 log
   （`LOG_TARGET_IDS=false`），開啟後才會在 log 中輸出 ID 與指令參數，僅建議除錯時暫時開啟。
-- API Gateway HTTP API 保留預設的帳號層級節流，本版不另設 per-route 節流。
+- API Gateway REST API 保留預設的帳號層級節流，本版不另設 per-route 節流。
 
 ## 隱私與資料生命週期
 
@@ -348,7 +348,7 @@ uv run pytest
 
 ### 用 `sam local invoke` 本機呼叫 Lambda
 
-`events/sample-follow.json` 是一個範例 API Gateway HTTP API 事件（`follow` 事件，全部使用假 ID），
+`events/sample-follow.json` 是一個範例 API Gateway Lambda proxy 事件（欄位與 REST API / HTTP API 相容）（`follow` 事件，全部使用假 ID），
 其中 `x-line-signature` 標頭已用假的 `channel_secret`（`local-test-secret`）預先計算好，
 可搭配同樣內容的本機 secret 直接驗證通過。
 

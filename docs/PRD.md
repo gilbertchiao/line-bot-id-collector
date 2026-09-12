@@ -44,7 +44,7 @@ LINE Messaging API 發送 push message 時需要指定目的地 ID：
 8. 在使用者封鎖 Bot 或 Bot 離開群組時，將對應 ID 標記為失效。
 9. 對一般使用者與群組**完全靜默**，不做任何回覆。
 10. 僅對「開發者」在 1:1 對話中的特定指令回覆，包含查詢自己的 ID、列出已收集的 ID 清單、管理開發者名單。
-11. 可用 AWS SAM 部署至 API Gateway HTTP API、AWS Lambda、DynamoDB、Secrets Manager。
+11. 可用 AWS SAM 部署至 API Gateway REST API、AWS Lambda、DynamoDB、Secrets Manager。
 12. 不需要任何 Web 管理介面。
 13. 提供文件說明如何用 AWS CLI 直接查詢與刪除已收集的 ID。
 
@@ -84,7 +84,7 @@ LINE Platform (Bot A) ──POST /webhook/alert-bot──┐
 LINE Platform (Bot B) ──POST /webhook/ops-bot ───┤
                                                   ▼
                                    ┌──────────────────────────────┐
-                                   │ API Gateway HTTP API          │
+                                   │ API Gateway REST API          │
                                    │ POST /webhook/{bot_id}        │
                                    └───────────────┬──────────────┘
                                                    ▼
@@ -103,7 +103,7 @@ LINE Platform (Bot B) ──POST /webhook/ops-bot ───┤
                               (每 Bot 一個 secret) (targets)  (reply / profile / group summary)
 ```
 
-使用 **API Gateway HTTP API**，不使用 REST API，因為本專案只需要簡單的 Lambda proxy integration。
+使用 **API Gateway REST API**（v1）的 Lambda proxy integration。原設計採用 HTTP API，但部分新區域（例如 `ap-east-2` 台北）尚未提供 HTTP API，而 REST API 的 proxy 事件同樣帶有 `pathParameters`、`headers`、`body`、`isBase64Encoded`，handler 不需修改，因此統一改用 REST API 以確保各區域皆可部署。Stage 名稱由 `ApiStageName` 參數決定（預設 `v1`），成為 URL 的第一段 path。
 
 ---
 
@@ -122,8 +122,8 @@ POST /webhook/{bot_id}
 Webhook URL 需手動設定於 LINE Developers Console，每個 Bot 各自設定：
 
 ```text
-https://xxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/webhook/alert-bot
-https://xxxxxxxx.execute-api.ap-northeast-1.amazonaws.com/webhook/ops-bot
+https://xxxxxxxx.execute-api.ap-east-2.amazonaws.com/v1/webhook/alert-bot
+https://xxxxxxxx.execute-api.ap-east-2.amazonaws.com/v1/webhook/ops-bot
 ```
 
 `bot_id` 不符合格式、或對應的 secret 不存在時，回 HTTP 404，不做任何處理。
@@ -201,7 +201,7 @@ message = 原始 HTTP request body（逐位元組一致）
 
 - 簽章無效 MUST NOT 造成任何 DynamoDB 寫入或 LINE API 呼叫。
 - 簽章比對使用 constant-time 比較（`hmac.compare_digest`）。
-- API Gateway HTTP API 保留預設的帳號層級節流；本版不另設 per-route 節流。
+- API Gateway REST API 保留預設的帳號層級節流；本版不另設 per-route 節流。
 
 ---
 
@@ -585,7 +585,7 @@ Lambda execution role 僅授予：
 
 `template.yaml` 負責建立：
 
-- API Gateway HTTP API，路由 `POST /webhook/{bot_id}`
+- API Gateway REST API（REGIONAL，stage 由 `ApiStageName` 決定），路由 `POST /webhook/{bot_id}`
 - Lambda function（Python 3.14 runtime、256 MB、15 秒 timeout）
 - DynamoDB table（`bot_id` + `target_id` 複合主鍵，on-demand）
 - IAM policy（第 16 節）
